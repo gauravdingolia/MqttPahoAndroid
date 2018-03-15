@@ -87,6 +87,7 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     private volatile boolean mBound;
     private volatile boolean mBinding;
     private MqttConnectionHandler mConnectionHandler;
+    private MqttService.MqttServiceBinder mBinder;
 
     /**
      * Constructor - create an MqttAndroidClient that can be used to communicate with an MQTT server on android
@@ -312,12 +313,6 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         mConnectOptions = options;
         mConnectToken = token;
 
-		/*
-         * The actual connection depends on the service, which we start and bind
-		 * to here, but which we can't actually use until the serviceConnection
-		 * onServiceConnected() method has run (asynchronously), so the
-		 * connection itself takes place in the onServiceConnected() method
-		 */
         if (mConnectionHandler == null)
         { // First time - must bind to the service
             Intent serviceStartIntent = new Intent(mContext, MqttService.class);
@@ -357,12 +352,12 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
      */
     private void doConnect()
     {
-        mConnectionHandler.setTraceEnabled(mTraceEnabled);
-
         String activityToken = storeToken(mConnectToken);
         try
         {
-            mConnectionHandler.initConnection(mServerURI, mClientId, Utils.getPackageName(mContext), mPersistence);
+            mConnectionHandler = mBinder
+                    .initConnection(mServerURI, mClientId, Utils.getPackageName(mContext), mPersistence);
+            mConnectionHandler.setTraceEnabled(mTraceEnabled);
             mConnectionHandler.connect(mConnectOptions, null, activityToken);
         }
         catch (MqttException e)
@@ -1666,7 +1661,7 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder)
         {
-            mConnectionHandler = ((MqttService.MqttServiceBinder) binder).getConnectionHandler();
+            mBinder = ((MqttService.MqttServiceBinder) binder);
             mBound = true;
             // now that we have the service available, we can actually
             // connect...

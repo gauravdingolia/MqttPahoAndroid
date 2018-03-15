@@ -24,6 +24,8 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.os.PowerManager;
 
+import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
+
 /**
  * <p>
  * The android service which interfaces with an MQTT client implementation
@@ -244,8 +246,7 @@ public class MqttService extends Service
         // we were given when started
         String activityToken = intent.getStringExtra(MqttServiceConstants.CALLBACK_ACTIVITY_TOKEN);
 
-        MqttConnectionHandler connectionHandler = new MqttConnectionHandler(mMqttConnectionManager);
-        MqttServiceBinder binder = new MqttServiceBinder(connectionHandler);
+        MqttServiceBinder binder = new MqttServiceBinder(mMqttConnectionManager);
         binder.setActivityToken(activityToken);
         return binder;
     }
@@ -298,20 +299,18 @@ public class MqttService extends Service
     public static class MqttServiceBinder extends Binder
     {
 
-        private MqttConnectionHandler mConnectionHandler;
         private String activityToken;
+        private MqttConnectionManager mMqttConnectionManager;
 
-        public MqttServiceBinder(MqttConnectionHandler connectionHandler)
+        MqttServiceBinder(MqttConnectionManager connectionManager)
         {
-            this.mConnectionHandler = connectionHandler;
+            mMqttConnectionManager = connectionManager;
         }
 
-        /**
-         * @return a reference to the Service
-         */
-        public MqttConnectionHandler getConnectionHandler()
+        public MqttConnectionHandler initConnection(String serverURI, String clientId, String contextId,
+                MqttClientPersistence persistence)
         {
-            return mConnectionHandler;
+            return mMqttConnectionManager.initConnection(serverURI, clientId, contextId, persistence);
         }
 
         /**

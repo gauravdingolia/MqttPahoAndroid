@@ -55,8 +55,8 @@ public class MqttConnectionManager implements MqttTraceHandler
      * @return a string to be used by the Activity as a "handle" for this
      * MqttConnection
      */
-    public String getConnectionString(String serverURI, String clientId, String contextId, MqttClientPersistence
-            persistence)
+    public MqttConnectionHandler initConnection(String serverURI, String clientId, String contextId,
+            MqttClientPersistence persistence)
     {
         String connectionString = serverURI + ":" + clientId + ":" + contextId;
         if (!connections.containsKey(connectionString))
@@ -65,7 +65,7 @@ public class MqttConnectionManager implements MqttTraceHandler
                     connectionString, mCallback);
             connections.put(connectionString, client);
         }
-        return connectionString;
+        return new MqttConnectionHandler(this, connectionString);
     }
 
     // The major API implementation follows :-
@@ -73,7 +73,7 @@ public class MqttConnectionManager implements MqttTraceHandler
     /**
      * Connect to the MQTT server specified by a particular client
      *
-     * @param connectionString      identifies the MqttConnection to use
+     * @param connectionString  identifies the MqttConnection to use
      * @param connectOptions    the MQTT connection options to be used
      * @param invocationContext arbitrary data to be passed back to the application
      * @param activityToken     arbitrary identifier to be passed back to the Activity
