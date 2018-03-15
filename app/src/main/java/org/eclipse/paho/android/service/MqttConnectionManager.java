@@ -73,17 +73,17 @@ public class MqttConnectionManager implements MqttTraceHandler
     /**
      * Connect to the MQTT server specified by a particular client
      *
-     * @param clientHandle      identifies the MqttConnection to use
+     * @param connectionString      identifies the MqttConnection to use
      * @param connectOptions    the MQTT connection options to be used
      * @param invocationContext arbitrary data to be passed back to the application
      * @param activityToken     arbitrary identifier to be passed back to the Activity
      * @throws MqttSecurityException thrown if there is a security exception
      * @throws MqttException         thrown for all other MqttExceptions
      */
-    public void connect(String clientHandle, MqttConnectOptions connectOptions, String invocationContext, String
+    public void connect(String connectionString, MqttConnectOptions connectOptions, String invocationContext, String
             activityToken) throws MqttSecurityException, MqttException
     {
-        MqttConnection client = getConnection(clientHandle);
+        MqttConnection client = getConnection(connectionString);
         client.connect(connectOptions, invocationContext, activityToken);
 
     }

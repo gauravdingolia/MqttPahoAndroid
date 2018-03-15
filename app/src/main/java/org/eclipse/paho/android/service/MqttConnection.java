@@ -40,6 +40,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import static org.eclipse.paho.android.service.LogUtils.LOGD;
+import static org.eclipse.paho.android.service.LogUtils.LOGE;
+import static org.eclipse.paho.android.service.LogUtils.LOGI;
+
 /**
  * <p>
  * MqttConnection holds a MqttAsyncClient {host,port,clientId} instance to perform
@@ -602,7 +606,7 @@ class MqttConnection implements MqttCallbackExtended
         }
         else
         {
-            Log.i(TAG, "Client is not connected, so not sending message");
+            LOGI(TAG, "Client is not connected, so not sending message");
             resultBundle.putString(MqttServiceConstants.CALLBACK_ERROR_MESSAGE, NOT_CONNECTED);
             mMqttConnectionManager.traceError(MqttServiceConstants.SEND_ACTION, NOT_CONNECTED);
             notifyCallback(clientHandle, Status.ERROR, resultBundle);
@@ -829,14 +833,14 @@ class MqttConnection implements MqttCallbackExtended
                     public void onSuccess(IMqttToken asyncActionToken)
                     {
                         // No action
-                        Log.d(TAG, "Disconnected successfully");
+                        LOGD(TAG, "Disconnected successfully");
                     }
 
                     @Override
                     public void onFailure(IMqttToken asyncActionToken, Throwable exception)
                     {
                         // No action
-                        Log.d(TAG, "Disconnection error: " + (exception == null ? "null" : exception.getMessage()));
+                        LOGD(TAG, "Disconnection error: " + (exception == null ? "null" : exception.getMessage()));
                     }
                 });
             }
@@ -1008,7 +1012,7 @@ class MqttConnection implements MqttCallbackExtended
             return;
         }
 
-        if (!mMqttConnectionManager.isOnline())
+        if (!Utils.isOnline(mContext))
         {
             mMqttConnectionManager.traceDebug(TAG,
                     "The network is not reachable. Will not do reconnect");
@@ -1018,7 +1022,7 @@ class MqttConnection implements MqttCallbackExtended
         if (connectOptions.isAutomaticReconnect())
         {
             //The Automatic reconnect functionality is enabled here
-            Log.i(TAG, "Requesting Automatic reconnect using New Java AC");
+            LOGI(TAG, "Requesting Automatic reconnect using New Java AC");
             final Bundle resultBundle = new Bundle();
             resultBundle.putString(MqttServiceConstants.CALLBACK_ACTIVITY_TOKEN, reconnectActivityToken);
             resultBundle.putString(MqttServiceConstants.CALLBACK_INVOCATION_CONTEXT, null);
@@ -1029,7 +1033,7 @@ class MqttConnection implements MqttCallbackExtended
             }
             catch (MqttException ex)
             {
-                Log.e(TAG, "Exception occurred attempting to reconnect: " + ex.getMessage());
+                LOGE(TAG, "Exception occurred attempting to reconnect: " + ex.getMessage());
                 setConnectingState(false);
                 handleException(resultBundle, ex);
             }

@@ -209,7 +209,6 @@ public class MqttService extends Service
     // An intent receiver to deal with changes in network connectivity
     private NetworkConnectionIntentReceiver mNetworkConnectionReceiver;
     private MqttConnectionManager mMqttConnectionManager;
-    private MqttServiceBinder mMqttServiceBinder;
     private boolean mRegistered;
 
     @Override
@@ -219,7 +218,6 @@ public class MqttService extends Service
         // create a binder that will let the Activity UI send
         // commands to the Service
         mMqttConnectionManager = new MqttConnectionManager(getApplicationContext());
-        mMqttServiceBinder = new MqttServiceBinder(mMqttConnectionManager);
         mNetworkConnectionReceiver = new NetworkConnectionIntentReceiver(mMqttConnectionManager);
         //TODO: Register receiver
         //TODO: Decide about binder
@@ -245,8 +243,11 @@ public class MqttService extends Service
         // a reference to ourself, and the activityToken
         // we were given when started
         String activityToken = intent.getStringExtra(MqttServiceConstants.CALLBACK_ACTIVITY_TOKEN);
-        mMqttServiceBinder.setActivityToken(activityToken);
-        return mMqttServiceBinder;
+
+        MqttConnectionHandler connectionHandler = new MqttConnectionHandler(mMqttConnectionManager);
+        MqttServiceBinder binder = new MqttServiceBinder(connectionHandler);
+        binder.setActivityToken(activityToken);
+        return binder;
     }
 
     /*
@@ -297,20 +298,20 @@ public class MqttService extends Service
     public static class MqttServiceBinder extends Binder
     {
 
-        private MqttConnectionManager mqttConnectionManager;
+        private MqttConnectionHandler mConnectionHandler;
         private String activityToken;
 
-        MqttServiceBinder(MqttConnectionManager mqttConnectionManager)
+        public MqttServiceBinder(MqttConnectionHandler connectionHandler)
         {
-            this.mqttConnectionManager = mqttConnectionManager;
+            this.mConnectionHandler = connectionHandler;
         }
 
         /**
          * @return a reference to the Service
          */
-        public MqttConnectionManager getConnectionManager()
+        public MqttConnectionHandler getConnectionHandler()
         {
-            return mqttConnectionManager;
+            return mConnectionHandler;
         }
 
         /**

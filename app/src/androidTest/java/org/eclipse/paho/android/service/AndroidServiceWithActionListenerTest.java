@@ -28,6 +28,8 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.util.concurrent.TimeUnit;
 
+import static org.eclipse.paho.android.service.LogUtils.LOGI;
+
 /**
  * @author Rhys
  *
@@ -457,15 +459,15 @@ public class AndroidServiceWithActionListenerTest extends ServiceTestCase
                 MqttConnectOptions options = new MqttConnectOptions();
                 options.setServerURIs(urls);
 
-                Log.i(methodName,"HA connect");
+                LOGI(methodName,"HA connect");
                 IMqttToken connectToken = client.connect(options, null, new ActionListener(notifier));
                 notifier.waitForCompletion(waitForCompletionTime);
 
-                Log.i(methodName,"HA disconnect");
+                LOGI(methodName,"HA disconnect");
                 IMqttToken disconnectToken = client.disconnect(null, new ActionListener(notifier));
                 notifier.waitForCompletion(waitForCompletionTime);
 
-                Log.i(methodName,"HA success");
+                LOGI(methodName,"HA success");
             }
             catch (Exception e) {
 
@@ -574,7 +576,7 @@ public class AndroidServiceWithActionListenerTest extends ServiceTestCase
                 Assert.fail("Receive failed");
             }
 
-            Log.i(methodName, "First client received message successfully");
+            LOGI(methodName, "First client received message successfully");
 
             disconnectToken = mqttClient.disconnect(null, new ActionListener(notifier));
             notifier.waitForCompletion(waitForCompletionTime);
@@ -582,22 +584,22 @@ public class AndroidServiceWithActionListenerTest extends ServiceTestCase
 
             mqttClientRetained = new MqttAndroidClient(mContext, serverURI, "Retained");
 
-            Log.i(methodName, "New MqttAndroidClient mqttClientRetained");
+            LOGI(methodName, "New MqttAndroidClient mqttClientRetained");
 
             MqttV3Receiver mqttV3ReceiverRetained = new MqttV3Receiver(mqttClientRetained, null);
             mqttClientRetained.setCallback(mqttV3ReceiverRetained);
 
-            Log.i(methodName, "Assigning callback...");
+            LOGI(methodName, "Assigning callback...");
 
             connectToken = mqttClientRetained.connect(null, new ActionListener(notifier));
             notifier.waitForCompletion(waitForCompletionTime);
 
-            Log.i(methodName, "Connect to mqtt server");
+            LOGI(methodName, "Connect to mqtt server");
 
             subToken = mqttClientRetained.subscribe(topicNames, topicQos, null, new ActionListener(notifier));
             notifier.waitForCompletion(waitForCompletionTime);
 
-            Log.i(methodName, "subscribe "+ topicNames[0] + " QoS is " + topicQos[0]);
+            LOGI(methodName, "subscribe "+ topicNames[0] + " QoS is " + topicQos[0]);
 
             TimeUnit.MILLISECONDS.sleep(3000);
 
@@ -606,7 +608,7 @@ public class AndroidServiceWithActionListenerTest extends ServiceTestCase
                 Assert.fail("Receive retained message failed");
             }
 
-            Log.i(methodName, "Second client received message successfully");
+            LOGI(methodName, "Second client received message successfully");
 
             disconnectToken = mqttClientRetained.disconnect(null, new ActionListener(notifier));
             notifier.waitForCompletion(waitForCompletionTime);

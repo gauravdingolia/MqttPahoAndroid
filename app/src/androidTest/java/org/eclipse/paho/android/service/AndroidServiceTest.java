@@ -13,6 +13,9 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
+import static org.eclipse.paho.android.service.LogUtils.LOGD;
+import static org.eclipse.paho.android.service.LogUtils.LOGI;
+
 /**
  * <a href="http://d.android.com/tools/testing/testing_android.html">Testing Fundamentals</a>
  */
@@ -38,7 +41,7 @@ public class AndroidServiceTest extends AndroidTestCase
         waitForCompletionTime = properties.getWaitForCompletionTime();
         String clientKeyStore = properties.getClientKeyStore();
         keyStorePwd = properties.getClientKeyStorePassword();
-        Log.d(TAG, properties.getServerSSLURI());
+        LOGD(TAG, properties.getServerSSLURI());
     }
 
 
@@ -268,7 +271,7 @@ public class AndroidServiceTest extends AndroidTestCase
                         mqttServerURI , "MultiPub" + i);
 
                 connectToken = mqttPublisher[i].connect(null, null);
-                Log.i(methodName, "publisher connecting url " + mqttServerURI
+                LOGI(methodName, "publisher connecting url " + mqttServerURI
                         + "MultiPub" + i);
                 connectToken.waitForCompletion(waitForCompletionTime);
             } // for...
@@ -280,17 +283,17 @@ public class AndroidServiceTest extends AndroidTestCase
                 mqttV3Receiver[i] = new MqttV3Receiver(mqttSubscriber[i],
                         null);
                 mqttSubscriber[i].setCallback(mqttV3Receiver[i]);
-                Log.i(methodName,"Assigning callback...");
+                LOGI(methodName,"Assigning callback...");
 
                 connectToken = mqttSubscriber[i].connect(null, null);
-                Log.i(methodName, "subscriber connecting url " + mqttServerURI
+                LOGI(methodName, "subscriber connecting url " + mqttServerURI
                         + "MultiSubscriber" + i);
 
                 connectToken.waitForCompletion(waitForCompletionTime);
 
                 subToken = mqttSubscriber[i].subscribe(topicNames, topicQos,
                         null, null);
-                Log.i(methodName, "subscribe " + topicNames[0]
+                LOGI(methodName, "subscribe " + topicNames[0]
                         + " QoS is " + topicQos[0]);
                 subToken.waitForCompletion(waitForCompletionTime);
             } // for...
@@ -300,7 +303,7 @@ public class AndroidServiceTest extends AndroidTestCase
                 for (IMqttAsyncClient aMqttPublisher : mqttPublisher) {
                     pubToken = aMqttPublisher.publish(topicNames[0], payload,
                             0, false, null, null);
-                    Log.i(methodName, "publish to " + topicNames[0]
+                    LOGI(methodName, "publish to " + topicNames[0]
                             + " payload is " + Arrays.toString(payload));
 
                     pubToken.waitForCompletion(waitForCompletionTime);
@@ -310,7 +313,7 @@ public class AndroidServiceTest extends AndroidTestCase
 
                 for (int i = 0; i < mqttSubscriber.length; i++) {
                     for (IMqttAsyncClient aMqttPublisher : mqttPublisher) {
-                        Log.i(methodName,
+                        LOGI(methodName,
                                 "validate time = " + new Date().toString());
                         boolean ok = mqttV3Receiver[i].validateReceipt(
                                 topicNames[0], 0, payload);
@@ -801,15 +804,15 @@ public class AndroidServiceTest extends AndroidTestCase
                 MqttConnectOptions options = new MqttConnectOptions();
                 options.setServerURIs(urls);
 
-                Log.i(methodName, "HA connect");
+                LOGI(methodName, "HA connect");
                 IMqttToken connectToken = client.connect(options);
                 connectToken.waitForCompletion(waitForCompletionTime);
 
-                Log.i(methodName, "HA disconnect");
+                LOGI(methodName, "HA disconnect");
                 IMqttToken disconnectToken = client.disconnect(null, null);
                 disconnectToken.waitForCompletion(waitForCompletionTime);
 
-                Log.i(methodName, "HA success");
+                LOGI(methodName, "HA success");
             } catch (Exception e) {
 
                 e.printStackTrace();
@@ -861,7 +864,7 @@ public class AndroidServiceTest extends AndroidTestCase
                 fail("Receive failed");
             }
 
-            Log.i(methodName, "First client received message successfully");
+            LOGI(methodName, "First client received message successfully");
 
             disconnectToken = mqttClient.disconnect(null, null);
             disconnectToken.waitForCompletion(waitForCompletionTime);
@@ -870,23 +873,23 @@ public class AndroidServiceTest extends AndroidTestCase
             mqttClientRetained = new MqttAndroidClient(mContext, mqttServerURI,
                     "Retained");
 
-            Log.i(methodName, "New MqttAndroidClient mqttClientRetained");
+            LOGI(methodName, "New MqttAndroidClient mqttClientRetained");
 
             MqttV3Receiver mqttV3ReceiverRetained = new MqttV3Receiver(
                     mqttClientRetained, null);
             mqttClientRetained.setCallback(mqttV3ReceiverRetained);
 
-            Log.i(methodName, "Assigning callback...");
+            LOGI(methodName, "Assigning callback...");
 
             connectToken = mqttClientRetained.connect(null, null);
             connectToken.waitForCompletion();
 
-            Log.i(methodName, "Connect to mqtt server");
+            LOGI(methodName, "Connect to mqtt server");
 
             subToken = mqttClientRetained.subscribe(topicNames, topicQos, null, null);
             subToken.waitForCompletion();
 
-            Log.i(methodName, "subscribe "+ topicNames[0] + " QoS is " + topicQos[0]);
+            LOGI(methodName, "subscribe "+ topicNames[0] + " QoS is " + topicQos[0]);
 
             TimeUnit.MILLISECONDS.sleep(3000);
 
@@ -895,7 +898,7 @@ public class AndroidServiceTest extends AndroidTestCase
                 fail("Receive retained message failed");
             }
 
-            Log.i(methodName, "Second client received message successfully");
+            LOGI(methodName, "Second client received message successfully");
 
             disconnectToken = mqttClientRetained.disconnect(null, null);
             disconnectToken.waitForCompletion(waitForCompletionTime);

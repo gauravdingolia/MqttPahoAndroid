@@ -13,13 +13,16 @@
 package org.eclipse.paho.android.service;
 
 import android.content.Context;
-import android.util.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
-class TestProperties {
+import static org.eclipse.paho.android.service.LogUtils.LOGE;
+import static org.eclipse.paho.android.service.LogUtils.LOGI;
+
+class TestProperties
+{
 
 
     private final Class<?> cclass = TestProperties.class;
@@ -39,27 +42,38 @@ class TestProperties {
     /**
      * Reads properties from a properties file
      */
-    public TestProperties(Context context) {
+    public TestProperties(Context context)
+    {
 
         this.context = context;
         InputStream stream = null;
-        try {
+        try
+        {
             String filename = "test.properties";
             stream = getPropertyFileAsStream(filename);
 
             // Read the properties from the property file
-            if (stream != null) {
-                Log.i("TestProperties","Loading properties from: '" + filename + "'");
+            if (stream != null)
+            {
+                LOGI("TestProperties", "Loading properties from: '" + filename + "'");
                 properties.load(stream);
             }
-        } catch (Exception e) {
-            Log.e("TestProperties", "caught exception:", e);
-        } finally {
-            if (stream != null) {
-                try {
+        }
+        catch (Exception e)
+        {
+            LOGE("TestProperties", "caught exception:", e);
+        }
+        finally
+        {
+            if (stream != null)
+            {
+                try
+                {
                     stream.close();
-                } catch (IOException e) {
-                    Log.e("TestProperties", "caught exception:", e);
+                }
+                catch (IOException e)
+                {
+                    LOGE("TestProperties", "caught exception:", e);
                 }
             }
         }
@@ -73,13 +87,15 @@ class TestProperties {
     private InputStream getPropertyFileAsStream(String fileName) throws IOException
     {
         InputStream stream = null;
-        try {
+        try
+        {
 
             stream = this.context.getResources().getAssets().open(fileName);
 
         }
-        catch (Exception exception) {
-            Log.e("TestProperties", "Property file: '" + fileName + "' not found");
+        catch (Exception exception)
+        {
+            LOGE("TestProperties", "Property file: '" + fileName + "' not found");
         }
 
         return stream;
@@ -90,7 +106,8 @@ class TestProperties {
      * @param key
      * @return value
      */
-    private String getProperty(String key) {
+    private String getProperty(String key)
+    {
         return properties.getProperty(key);
     }
 
@@ -98,7 +115,8 @@ class TestProperties {
      * @param key
      * @return value
      */
-    public boolean getBooleanProperty(String key) {
+    public boolean getBooleanProperty(String key)
+    {
         String value = getProperty(key);
         return Boolean.parseBoolean(value);
     }
@@ -107,7 +125,8 @@ class TestProperties {
      * @param key
      * @return value
      */
-    private int getIntProperty(String key) {
+    private int getIntProperty(String key)
+    {
         String value = getProperty(key);
         return Integer.parseInt(value);
     }
@@ -117,7 +136,8 @@ class TestProperties {
      * @return keystore file name
      */
 
-    public String getClientKeyStore() {
+    public String getClientKeyStore()
+    {
         return getProperty(KEY_CLIENT_KEY_STORE);
     }
 
@@ -125,7 +145,8 @@ class TestProperties {
      * @return keystore file password
      */
 
-    public String getClientKeyStorePassword() {
+    public String getClientKeyStorePassword()
+    {
         return getProperty(KEY_CLIENT_KEY_STORE_PASSWORD);
     }
 
@@ -133,19 +154,22 @@ class TestProperties {
      * @return the SSL url of the server for testing
      */
 
-    public String getServerSSLURI() {
+    public String getServerSSLURI()
+    {
         return getProperty(KEY_SERVER_SSL_URI);
     }
 
     /**
      * @return the server url for testing
      */
-    public String getServerURI() {
+    public String getServerURI()
+    {
         return getProperty(KEY_SERVER_URI);
 
     }
 
-    public int getWaitForCompletionTime(){
+    public int getWaitForCompletionTime()
+    {
         return getIntProperty(KEY_WAIT_FOR_COMPLETION_TIME);
     }
 }

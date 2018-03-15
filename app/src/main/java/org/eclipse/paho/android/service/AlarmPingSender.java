@@ -25,11 +25,12 @@ import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.util.Log;
 
-import org.eclipse.paho.android.service.constants.Constants;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttPingSender;
 import org.eclipse.paho.client.mqttv3.internal.ClientComms;
+
+import static org.eclipse.paho.android.service.LogUtils.LOGD;
 
 /**
  * Default ping sender implementation on Android. It is based on AlarmManager.
@@ -70,7 +71,7 @@ class AlarmPingSender implements MqttPingSender
         String action = MqttServiceConstants.PING_SENDER + clientComms.getClient().getClientId();
 
         Context context = mApplicationContext;
-        Log.d(TAG, "Register AlarmReceiver to MqttService" + action);
+        LOGD(TAG, "Register AlarmReceiver to MqttService" + action);
         context.registerReceiver(mReceiver, new IntentFilter(action));
 
         pendingIntent = PendingIntent.getBroadcast(context, 0, new Intent(action), PendingIntent.FLAG_UPDATE_CURRENT);
@@ -83,7 +84,7 @@ class AlarmPingSender implements MqttPingSender
     public void stop()
     {
 
-        Log.d(TAG, "Unregister AlarmReceiver to MqttService" + clientComms.getClient().getClientId());
+        LOGD(TAG, "Unregister AlarmReceiver to MqttService" + clientComms.getClient().getClientId());
         if (hasStarted)
         {
             if (pendingIntent != null)
@@ -106,18 +107,18 @@ class AlarmPingSender implements MqttPingSender
     public void schedule(long delayInMilliseconds)
     {
         long nextAlarmInMilliseconds = System.currentTimeMillis() + delayInMilliseconds;
-        Log.d(TAG, "Schedule next alarm at " + nextAlarmInMilliseconds);
+        LOGD(TAG, "Schedule next alarm at " + nextAlarmInMilliseconds);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
         {
             // In SDK 23 and above, dosing will prevent setExact, setExactAndAllowWhileIdle will force
             // the device to run this task whilst dosing.
-            Log.d(TAG, "Alarm schedule using setExactAndAllowWhileIdle, next: " + delayInMilliseconds);
+            LOGD(TAG, "Alarm schedule using setExactAndAllowWhileIdle, next: " + delayInMilliseconds);
             mAlarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextAlarmInMilliseconds, pendingIntent);
         }
         else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
         {
-            Log.d(TAG, "Alarm schedule using setExact, delay: " + delayInMilliseconds);
+            LOGD(TAG, "Alarm schedule using setExact, delay: " + delayInMilliseconds);
             mAlarmManager.setExact(AlarmManager.RTC_WAKEUP, nextAlarmInMilliseconds, pendingIntent);
         }
         else
@@ -145,7 +146,7 @@ class AlarmPingSender implements MqttPingSender
             // finished handling the broadcast.", but this class still get
             // a wake lock to wait for ping finished.
 
-            Log.d(TAG, "Sending Ping at:" + System.currentTimeMillis());
+            LOGD(TAG, "Sending Ping at:" + System.currentTimeMillis());
 
             PowerManager pm = (PowerManager) mApplicationContext.getSystemService(Service.POWER_SERVICE);
             //noinspection ConstantConditions
@@ -161,7 +162,7 @@ class AlarmPingSender implements MqttPingSender
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken)
                 {
-                    Log.d(TAG, "Success. Release lock(" + wakeLockTag + "):" + System.currentTimeMillis());
+                    LOGD(TAG, "Success. Release lock(" + wakeLockTag + "):" + System.currentTimeMillis());
                     if (wakelock.isHeld()) wakelock.release();
                 }
 
@@ -169,7 +170,7 @@ class AlarmPingSender implements MqttPingSender
                 public void onFailure(IMqttToken asyncActionToken,
                         Throwable exception)
                 {
-                    Log.d(TAG, "Failure. Release lock(" + wakeLockTag + "):" + System.currentTimeMillis());
+                    LOGD(TAG, "Failure. Release lock(" + wakeLockTag + "):" + System.currentTimeMillis());
                     if (wakelock.isHeld()) wakelock.release();
                 }
             });

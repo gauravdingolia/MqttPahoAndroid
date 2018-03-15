@@ -10,10 +10,15 @@ import static android.content.Context.CONNECTIVITY_SERVICE;
  * @author Gaurav Dingolia
  */
 
-class Utils
+public class Utils
 {
     private Utils()
     {
+    }
+
+    public static String getPackageName(Context context)
+    {
+        return context.getApplicationInfo().packageName;
     }
 
     /**
