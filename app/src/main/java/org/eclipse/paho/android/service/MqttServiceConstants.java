@@ -16,84 +16,75 @@ package org.eclipse.paho.android.service;
  * Various strings used to identify operations or data in the Android MQTT
  * service, mainly used in Intents passed between Activities and the Service.
  */
-interface MqttServiceConstants {
+interface MqttServiceConstants
+{
 
 	/*
-	 * Version information
+     * Version information
 	 */
-	
-	String VERSION = "v0";
-	
-  /*
-   * Attributes of messages <p> Used for the column names in the database
-   */
-  String DUPLICATE = "duplicate";
-  String RETAINED = "retained";
-  String QOS = "qos";
-  String PAYLOAD = "payload";
-  String DESTINATION_NAME = "destinationName";
-  String CLIENT_HANDLE = "clientHandle";
-  String MESSAGE_ID = "messageId";
 
-  /* Tags for actions passed between the Activity and the Service */
-  String SEND_ACTION = "send";
-  String UNSUBSCRIBE_ACTION = "unsubscribe";
-  String SUBSCRIBE_ACTION = "subscribe";
-  String DISCONNECT_ACTION = "disconnect";
-  String CONNECT_ACTION = "connect";
-  String CONNECT_EXTENDED_ACTION = "connectExtended";
-  String MESSAGE_ARRIVED_ACTION = "messageArrived";
-  String MESSAGE_DELIVERED_ACTION = "messageDelivered";
-  String ON_CONNECTION_LOST_ACTION = "onConnectionLost";
-  String TRACE_ACTION = "trace";
+    String VERSION = "v0";
+    String TAG = MqttServiceConstants.class.getSimpleName();
 
-  /* Identifies an Intent which calls back to the Activity */
-  String CALLBACK_TO_ACTIVITY = MqttService.TAG
-                                             + ".callbackToActivity"+"."+VERSION;
+    /*
+     * Attributes of messages <p> Used for the column names in the database
+     */
+    String DUPLICATE = "duplicate";
+    String RETAINED = "retained";
+    String QOS = "qos";
+    String PAYLOAD = "payload";
+    String DESTINATION_NAME = "destinationName";
+    String CLIENT_HANDLE = "clientHandle";
+    String MESSAGE_ID = "messageId";
 
-  /* Identifiers for extra data on Intents broadcast to the Activity */
-  String CALLBACK_ACTION = MqttService.TAG + ".callbackAction";
-  String CALLBACK_STATUS = MqttService.TAG + ".callbackStatus";
-  String CALLBACK_CLIENT_HANDLE = MqttService.TAG + "."
-                                               + CLIENT_HANDLE;
-  String CALLBACK_ERROR_MESSAGE = MqttService.TAG
-                                               + ".errorMessage";
-  String CALLBACK_EXCEPTION_STACK = MqttService.TAG
-                                                 + ".exceptionStack";
-  String CALLBACK_INVOCATION_CONTEXT = MqttService.TAG + "."
-                                                    + "invocationContext";
-  String CALLBACK_ACTIVITY_TOKEN = MqttService.TAG + "."
-                                                + "activityToken";
-  String CALLBACK_DESTINATION_NAME = MqttService.TAG + '.'
-                                                  + DESTINATION_NAME;
-  String CALLBACK_MESSAGE_ID = MqttService.TAG + '.'
-                                            + MESSAGE_ID;
-  String CALLBACK_RECONNECT = MqttService.TAG + ".reconnect";
-  String CALLBACK_SERVER_URI = MqttService.TAG + ".serverURI";
-  String CALLBACK_MESSAGE_PARCEL = MqttService.TAG + ".PARCEL";
-  String CALLBACK_TRACE_SEVERITY = MqttService.TAG
-                                                + ".traceSeverity";
-  String CALLBACK_TRACE_TAG = MqttService.TAG + ".traceTag";
-  String CALLBACK_TRACE_ID = MqttService.TAG + ".traceId";
-  String CALLBACK_ERROR_NUMBER = MqttService.TAG
-                                              + ".ERROR_NUMBER";
+    /* Tags for actions passed between the Activity and the Service */
+    String SEND_ACTION = "send";
+    String UNSUBSCRIBE_ACTION = "unsubscribe";
+    String SUBSCRIBE_ACTION = "subscribe";
+    String DISCONNECT_ACTION = "disconnect";
+    String CONNECT_ACTION = "connect";
+    String CONNECT_EXTENDED_ACTION = "connectExtended";
+    String MESSAGE_ARRIVED_ACTION = "messageArrived";
+    String MESSAGE_DELIVERED_ACTION = "messageDelivered";
+    String ON_CONNECTION_LOST_ACTION = "onConnectionLost";
+    String TRACE_ACTION = "trace";
 
-  String CALLBACK_EXCEPTION = MqttService.TAG + ".exception";
-  
-  //Intent prefix for Ping sender.
-  String PING_SENDER = MqttService.TAG + ".pingSender.";
-  
-  //Constant for wakelock
-  String PING_WAKELOCK = MqttService.TAG + ".client.";
-  String WAKELOCK_NETWORK_INTENT = MqttService.TAG + "";
+    /* Identifies an Intent which calls back to the Activity */
+    String CALLBACK_TO_ACTIVITY = TAG + ".callbackToActivity." + VERSION;
 
-  //Trace severity levels  
-  String TRACE_ERROR = "error";
-  String TRACE_DEBUG = "debug";
-  String TRACE_EXCEPTION = "exception";
-  
-  
-  //exception code for non MqttExceptions
-  int NON_MQTT_EXCEPTION = -1;
+    /* Identifiers for extra data on Intents broadcast to the Activity */
+    String CALLBACK_ACTION = TAG + ".callbackAction";
+    String CALLBACK_STATUS = TAG + ".callbackStatus";
+    String CALLBACK_CLIENT_HANDLE = TAG + "." + CLIENT_HANDLE;
+    String CALLBACK_ERROR_MESSAGE = TAG + ".errorMessage";
+    String CALLBACK_EXCEPTION_STACK = TAG + ".exceptionStack";
+    String CALLBACK_INVOCATION_CONTEXT = TAG + ".invocationContext";
+    String CALLBACK_ACTIVITY_TOKEN = TAG + ".activityToken";
+    String CALLBACK_DESTINATION_NAME = TAG + '.' + DESTINATION_NAME;
+    String CALLBACK_MESSAGE_ID = TAG + '.' + MESSAGE_ID;
+    String CALLBACK_RECONNECT = TAG + ".reconnect";
+    String CALLBACK_SERVER_URI = TAG + ".serverURI";
+    String CALLBACK_MESSAGE_PARCEL = TAG + ".PARCEL";
+    String CALLBACK_TRACE_SEVERITY = TAG + ".traceSeverity";
+    String CALLBACK_TRACE_TAG = TAG + ".traceTag";
+    String CALLBACK_TRACE_ID = TAG + ".traceId";
+    String CALLBACK_ERROR_NUMBER = TAG + ".ERROR_NUMBER";
+
+    String CALLBACK_EXCEPTION = TAG + ".exception";
+
+    //Intent prefix for Ping sender.
+    String PING_SENDER = TAG + ".pingSender.";
+
+    //Constant for wakelock
+    String PING_WAKELOCK = TAG + ".client.";
+
+    //Trace severity levels
+    String TRACE_ERROR = "error";
+    String TRACE_DEBUG = "debug";
+    String TRACE_EXCEPTION = "exception";
+
+
+    //exception code for non MqttExceptions
+    int NON_MQTT_EXCEPTION = -1;
 
 }

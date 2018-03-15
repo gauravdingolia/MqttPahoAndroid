@@ -34,7 +34,7 @@ import org.eclipse.paho.client.mqttv3.internal.ClientComms;
 /**
  * Default ping sender implementation on Android. It is based on AlarmManager.
  * <p>
- * <p>This class implements the {@link MqttPingSender} pinger interface
+ * <p>This class implements the {@link MqttPingSender} interface
  * allowing applications to send ping packet to server every keep alive interval.
  * </p>
  *
@@ -42,47 +42,40 @@ import org.eclipse.paho.client.mqttv3.internal.ClientComms;
  */
 class AlarmPingSender implements MqttPingSender
 {
-    // Identifier for Intents, log messages, etc..
-    private static final String TAG = "AlarmPingSender";
+    private static final String TAG = AlarmPingSender.class.getSimpleName();
 
-    // TODO: Add log.
-    private ClientComms comms;
-    private MqttService service;
-    private BroadcastReceiver alarmReceiver;
-    private AlarmPingSender that;
+    private ClientComms clientComms;
+    private Context mApplicationContext;
+    private BroadcastReceiver mReceiver;
     private PendingIntent pendingIntent;
     private volatile boolean hasStarted = false;
+    private AlarmManager mAlarmManager;
 
-    public AlarmPingSender(MqttService service)
+    AlarmPingSender(Context context)
     {
-        if (service == null)
-        {
-            throw new IllegalArgumentException(
-                    "Neither service nor client can be null.");
-        }
-        this.service = service;
-        that = this;
+        mApplicationContext = context.getApplicationContext();
+        mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
     }
 
     @Override
     public void init(ClientComms comms)
     {
-        this.comms = comms;
-        this.alarmReceiver = new AlarmReceiver();
+        this.clientComms = comms;
+        this.mReceiver = new AlarmReceiver();
     }
 
     @Override
     public void start()
     {
-        String action = MqttServiceConstants.PING_SENDER + comms.getClient().getClientId();
-        Context context = service.getApplicationContext();
+        String action = MqttServiceConstants.PING_SENDER + clientComms.getClient().getClientId();
 
-        Log.d(TAG, "Register alarmreceiver to MqttService" + action);
-        context.registerReceiver(alarmReceiver, new IntentFilter(action));
+        Context context = mApplicationContext;
+        Log.d(TAG, "Register AlarmReceiver to MqttService" + action);
+        context.registerReceiver(mReceiver, new IntentFilter(action));
 
         pendingIntent = PendingIntent.getBroadcast(context, 0, new Intent(action), PendingIntent.FLAG_UPDATE_CURRENT);
 
-        schedule(comms.getKeepAlive());
+        schedule(clientComms.getKeepAlive());
         hasStarted = true;
     }
 
@@ -90,20 +83,16 @@ class AlarmPingSender implements MqttPingSender
     public void stop()
     {
 
-        Log.d(TAG, "Unregister alarmreceiver to MqttService" + comms.getClient().getClientId());
+        Log.d(TAG, "Unregister AlarmReceiver to MqttService" + clientComms.getClient().getClientId());
         if (hasStarted)
         {
             if (pendingIntent != null)
-            {
-                // Cancel Alarm.
-                AlarmManager alarmManager = (AlarmManager) service.getSystemService(Service.ALARM_SERVICE);
-                alarmManager.cancel(pendingIntent);
-            }
+                mAlarmManager.cancel(pendingIntent);
 
             hasStarted = false;
             try
             {
-                service.unregisterReceiver(alarmReceiver);
+                mApplicationContext.unregisterReceiver(mReceiver);
             }
             catch (IllegalArgumentException e)
             {
@@ -118,23 +107,22 @@ class AlarmPingSender implements MqttPingSender
     {
         long nextAlarmInMilliseconds = System.currentTimeMillis() + delayInMilliseconds;
         Log.d(TAG, "Schedule next alarm at " + nextAlarmInMilliseconds);
-        AlarmManager alarmManager = (AlarmManager) service.getSystemService(Service.ALARM_SERVICE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
         {
             // In SDK 23 and above, dosing will prevent setExact, setExactAndAllowWhileIdle will force
             // the device to run this task whilst dosing.
-            Log.d(TAG, "Alarm scheule using setExactAndAllowWhileIdle, next: " + delayInMilliseconds);
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextAlarmInMilliseconds, pendingIntent);
+            Log.d(TAG, "Alarm schedule using setExactAndAllowWhileIdle, next: " + delayInMilliseconds);
+            mAlarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextAlarmInMilliseconds, pendingIntent);
         }
         else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
         {
             Log.d(TAG, "Alarm schedule using setExact, delay: " + delayInMilliseconds);
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextAlarmInMilliseconds, pendingIntent);
+            mAlarmManager.setExact(AlarmManager.RTC_WAKEUP, nextAlarmInMilliseconds, pendingIntent);
         }
         else
         {
-            alarmManager.set(AlarmManager.RTC_WAKEUP, nextAlarmInMilliseconds, pendingIntent);
+            mAlarmManager.set(AlarmManager.RTC_WAKEUP, nextAlarmInMilliseconds, pendingIntent);
         }
     }
 
@@ -143,7 +131,8 @@ class AlarmPingSender implements MqttPingSender
      */
     class AlarmReceiver extends BroadcastReceiver
     {
-        private final String wakeLockTag = MqttServiceConstants.PING_WAKELOCK + that.comms.getClient().getClientId();
+        private final String wakeLockTag = MqttServiceConstants.PING_WAKELOCK + AlarmPingSender.this.clientComms
+                .getClient().getClientId();
         private WakeLock wakelock;
 
         @Override
@@ -158,21 +147,21 @@ class AlarmPingSender implements MqttPingSender
 
             Log.d(TAG, "Sending Ping at:" + System.currentTimeMillis());
 
-            PowerManager pm = (PowerManager) service.getSystemService(Service.POWER_SERVICE);
+            PowerManager pm = (PowerManager) mApplicationContext.getSystemService(Service.POWER_SERVICE);
+            //noinspection ConstantConditions
             wakelock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, wakeLockTag);
             wakelock.acquire(Constants.DEFAULT_WAKELOCK_TIMEOUT_MS);
 
             // Assign new callback to token to execute code after PingResq
             // arrives. Get another wakelock even receiver already has one,
             // release it until ping response returns.
-            IMqttToken token = comms.checkForActivity(new IMqttActionListener()
+            IMqttToken token = clientComms.checkForActivity(new IMqttActionListener()
             {
 
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken)
                 {
                     Log.d(TAG, "Success. Release lock(" + wakeLockTag + "):" + System.currentTimeMillis());
-                    //Release wakelock when it is done.
                     if (wakelock.isHeld()) wakelock.release();
                 }
 
@@ -181,16 +170,12 @@ class AlarmPingSender implements MqttPingSender
                         Throwable exception)
                 {
                     Log.d(TAG, "Failure. Release lock(" + wakeLockTag + "):" + System.currentTimeMillis());
-                    //Release wakelock when it is done.
                     if (wakelock.isHeld()) wakelock.release();
                 }
             });
 
 
-            if (token == null && wakelock.isHeld())
-            {
-                wakelock.release();
-            }
+            if (token == null && wakelock.isHeld()) wakelock.release();
         }
     }
 }

@@ -21,7 +21,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v4.content.LocalBroadcastManager;
@@ -76,12 +75,12 @@ import javax.net.ssl.TrustManagerFactory;
  */
 public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncClient
 {
+    private static final String TAG = MqttAndroidClient.class.getSimpleName();
 
     private static final String SERVICE_NAME = "org.eclipse.paho.android.service.MqttService";
-    private static final int BIND_SERVICE_FLAG = 0;
     private static final ExecutorService pool = Executors.newCachedThreadPool();
     // Listener for when the service is connected or disconnected
-    private final MyServiceConnection serviceConnection = new MyServiceConnection();
+    private final ServiceConnection serviceConnection = new ServiceConnection();
     // We hold the various tokens in a collection and pass identifiers for them
     // to the service
     private final SparseArray<IMqttToken> tokenMap = new SparseArray<>();
@@ -91,7 +90,7 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     //The acknowledgment that a message has been processed by the application
     private final Ack messageAck;
     // The Android Service which will process our mqtt calls
-    private MqttService mqttService;
+    private MqttConnectionManager mqttService;
     // An identifier for the underlying client connection, which we can pass to
     // the service
     private String clientHandle;
@@ -103,9 +102,9 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     // The MqttCallback provided by the application
     private MqttCallback callback;
     private MqttTraceHandler traceCallback;
-    private boolean traceEnabled = false;
-    private volatile boolean receiverRegistered = false;
-    private volatile boolean bindedService = false;
+    private boolean traceEnabled;
+    private volatile boolean receiverRegistered;
+    private volatile boolean bindedService;
 
     /**
      * Constructor - create an MqttAndroidClient that can be used to communicate with an MQTT server on android
@@ -232,8 +231,9 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         {
             if (clientHandle == null)
             {
-                clientHandle = mqttService.getClient(serverURI, clientId, myContext.getApplicationInfo().packageName,
-                        persistence);
+                clientHandle = mqttService
+                        .getConnectionString(serverURI, clientId, myContext.getApplicationInfo().packageName,
+                                persistence);
             }
             mqttService.close(clientHandle);
         }
@@ -398,8 +398,8 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     {
         if (clientHandle == null)
         {
-            clientHandle = mqttService.getClient(serverURI, clientId, myContext.getApplicationInfo().packageName,
-                    persistence);
+            clientHandle = mqttService
+                    .getConnectionString(serverURI, clientId, myContext.getApplicationInfo().packageName, persistence);
         }
         mqttService.setTraceEnabled(traceEnabled);
         mqttService.setTraceCallbackId(clientHandle);
@@ -1232,8 +1232,7 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
 
         String handleFromIntent = data.getString(MqttServiceConstants.CALLBACK_CLIENT_HANDLE);
 
-        if ((handleFromIntent == null)
-                || (!handleFromIntent.equals(clientHandle)))
+        if ((handleFromIntent == null) || (!handleFromIntent.equals(clientHandle)))
         {
             return;
         }
@@ -1283,7 +1282,7 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         }
         else
         {
-            mqttService.traceError(MqttService.TAG, "Callback action doesn't exist.");
+            mqttService.traceError(TAG, "Callback action doesn't exist.");
         }
 
     }
@@ -1400,7 +1399,7 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         }
         else
         {
-            mqttService.traceError(MqttService.TAG, "simpleAction : token is null");
+            mqttService.traceError(TAG, "simpleAction : token is null");
         }
     }
 
@@ -1714,13 +1713,13 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     /**
      * ServiceConnection to process when we bind to our service
      */
-    private final class MyServiceConnection implements ServiceConnection
+    private final class ServiceConnection implements android.content.ServiceConnection
     {
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder)
         {
-            mqttService = ((MqttServiceBinder) binder).getService();
+            mqttService = ((MqttService.MqttServiceBinder) binder).getConnectionManager();
             bindedService = true;
             // now that we have the service available, we can actually
             // connect...
