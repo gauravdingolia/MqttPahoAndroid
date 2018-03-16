@@ -81,6 +81,7 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     private MqttConnectionHandler mConnectionHandler;
     private MqttService.MqttServiceBinder mBinder;
     private boolean mDisconnecting;
+    private boolean mConnectionPending;
 
     /**
      * Constructor - create an MqttAndroidClient that can be used to communicate with an MQTT server on android
@@ -313,24 +314,28 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
         else
         {
             //Close any connection that is previously open
-            if (mConnectionHandler != null && !mDisconnecting && mConnectionHandler.isConnected())
-            {
-                try
-                {
-                    disconnect();
-                }
-                catch (MqttException e)
-                {
-                    LOGE("Exception while disconnecting client: %s", e.getMessage());
-                    //Ignore and connect new client
-                }
-            }
             if (mConnectionHandler != null)
             {
-                mConnectionHandler.setCallback(null);
-                mConnectionHandler = null;
+                mConnectionPending = mDisconnecting || mConnectionHandler.isConnected();
+                if (!mDisconnecting && mConnectionHandler.isConnected())
+                {
+                    try
+                    {
+                        disconnect();
+                    }
+                    catch (MqttException e)
+                    {
+                        LOGE("Exception while disconnecting client: %s", e.getMessage());
+                        mConnectionPending = false;
+                        doConnect();
+                        //Ignore and connect new client
+                    }
+                }
             }
-            doConnect();
+            else
+            {
+                doConnect();
+            }
         }
 
         return token;
@@ -1206,16 +1211,19 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
         {
             disconnected(data);
             mDisconnecting = false;
+            if (mConnectionPending) doConnect();
         }
         else if (MqttServiceConstants.TRACE_ACTION.equals(action))
         {
             traceAction(data);
             mDisconnecting = false;
+            if (mConnectionPending) doConnect();
         }
         else
         {
             mConnectionHandler.traceError(TAG, "Callback action doesn't exist.");
             mDisconnecting = false;
+            if (mConnectionPending) doConnect();
         }
 
     }
