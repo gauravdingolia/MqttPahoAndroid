@@ -51,3 +51,4 @@ instapk.log*
 /app/build/
 
 instapk.properties
+/gradle-local.properties

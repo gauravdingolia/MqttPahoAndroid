@@ -636,8 +636,7 @@ public class AndroidServiceTest extends AndroidTestCase
 
             // Reconnect and check we have no messages.
             mqttClient = new MqttAndroidClient(mContext, mqttServerURI, "testCleanStart");
-            mqttV3Receiver = new MqttV3Receiver(mqttClient,
-                    null);
+            mqttV3Receiver = new MqttV3Receiver(mqttClient, null);
             mqttClient.setCallback(mqttV3Receiver);
 
             mqttConnectOptions = new MqttConnectOptions();
@@ -645,10 +644,9 @@ public class AndroidServiceTest extends AndroidTestCase
             connectToken = mqttClient.connect(mqttConnectOptions, null, null);
             connectToken.waitForCompletion(waitForCompletionTime);
 
-            MqttV3Receiver.ReceivedMessage receivedMessage = mqttV3Receiver
-                    .receiveNext(100);
+            MqttV3Receiver.ReceivedMessage receivedMessage = mqttV3Receiver.receiveNext(100);
             if (receivedMessage != null) {
-                fail("Receive messaqe:"
+                fail("Receive message:"
                         + new String(receivedMessage.message.getPayload()));
             }
 
@@ -660,7 +658,7 @@ public class AndroidServiceTest extends AndroidTestCase
 
             receivedMessage = mqttV3Receiver.receiveNext(100);
             if (receivedMessage != null) {
-                fail("Receive messaqe:"
+                fail("Receive message:"
                         + new String(receivedMessage.message.getPayload()));
             }
         }
@@ -676,7 +674,6 @@ public class AndroidServiceTest extends AndroidTestCase
                 mqttClient.close();
             }
             catch (Exception ignored) {
-
             }
         }
 

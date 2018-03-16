@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Gaurav Dingolia
  */
 
-public class MqttConnectionManager implements MqttTraceHandler
+class MqttConnectionManager implements MqttTraceHandler
 {
     private static final String TAG = MqttConnectionManager.class.getSimpleName();
     private Context mContext;
@@ -38,7 +38,7 @@ public class MqttConnectionManager implements MqttTraceHandler
     private MqttConnection.Callback mCallback;
 
     //TODO: should it be singleton?
-    public MqttConnectionManager(Context context)
+    MqttConnectionManager(Context context)
     {
         mContext = context;
         mMessageStore = new DatabaseMessageStore(this, context);
@@ -62,10 +62,10 @@ public class MqttConnectionManager implements MqttTraceHandler
         if (!connections.containsKey(connectionString))
         {
             MqttConnection client = new MqttConnection(mContext, mMessageStore, serverURI, clientId, persistence,
-                    connectionString, mCallback);
+                    connectionString, this, mCallback);
             connections.put(connectionString, client);
         }
-        return new MqttConnectionHandler(this, connectionString);
+        return new MqttConnectionHandler(mContext, this, connectionString);
     }
 
     // The major API implementation follows :-
@@ -85,7 +85,6 @@ public class MqttConnectionManager implements MqttTraceHandler
     {
         MqttConnection client = getConnection(connectionString);
         client.connect(connectOptions, invocationContext, activityToken);
-
     }
 
     /**
@@ -110,6 +109,16 @@ public class MqttConnectionManager implements MqttTraceHandler
     {
         MqttConnection client = getConnection(clientHandle);
         client.close();
+        connections.remove(clientHandle);
+    }
+
+    public void closeAll()
+    {
+        for (MqttConnection client : connections.values())
+        {
+            client.close();
+        }
+        connections.clear();
     }
 
     /**
@@ -124,7 +133,6 @@ public class MqttConnectionManager implements MqttTraceHandler
     {
         MqttConnection client = getConnection(clientHandle);
         client.disconnect(invocationContext, activityToken);
-        connections.remove(clientHandle);
     }
 
     /**
@@ -139,7 +147,14 @@ public class MqttConnectionManager implements MqttTraceHandler
     {
         MqttConnection client = getConnection(clientHandle);
         client.disconnect(quiesceTimeout, invocationContext, activityToken);
-        connections.remove(clientHandle);
+    }
+
+    public void disconnectAll()
+    {
+        for (MqttConnection client : connections.values())
+        {
+            client.disconnect(null, null);
+        }
     }
 
     /**

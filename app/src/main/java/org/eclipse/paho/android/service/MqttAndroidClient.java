@@ -1,13 +1,10 @@
 package org.eclipse.paho.android.service;
 
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.support.v4.content.LocalBroadcastManager;
 import android.util.SparseArray;
 
 import org.eclipse.paho.client.mqttv3.DisconnectedBufferOptions;
@@ -33,13 +30,13 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
+
+import static org.eclipse.paho.android.service.LogUtils.LOGE;
 
 /**
  * Enables an android application to communicate with an MQTT server using non-blocking methods.
@@ -57,37 +54,33 @@ import javax.net.ssl.TrustManagerFactory;
  * <li>disconnect
  * </ul>
  */
-public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncClient
+public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandler.Callback
 {
     private static final String TAG = MqttAndroidClient.class.getSimpleName();
 
-    private static final ExecutorService pool = Executors.newCachedThreadPool();
     // Listener for when the service is connected or disconnected
     private final ServiceConnection mServiceConnection = new ServiceConnection();
-    // We hold the various tokens in a collection and pass identifiers for them
-    // to the service
-    private final SparseArray<IMqttToken> tokenMap = new SparseArray<>();
     // Connection data
     private final String mServerURI;
     private final String mClientId;
     //The acknowledgment that a message has been processed by the application
     private final Ack mMessageAck;
+    private SparseArray<IMqttToken> tokenMap = new SparseArray<>();
     // An identifier for the underlying client connection, which we can pass to
     // the service
     private Context mContext;
-    private int tokenNumber = 0;
-    private MqttClientPersistence mPersistence = null;
+    private volatile int tokenNumber;
+    private MqttClientPersistence mPersistence;
     private MqttConnectOptions mConnectOptions;
     private IMqttToken mConnectToken;
     // The MqttCallback provided by the application
     private MqttCallback mMqttCallback;
     private MqttTraceHandler mMqttTraceHandler;
     private boolean mTraceEnabled;
-    private volatile boolean mReceiverRegistered;
     private volatile boolean mBound;
-    private volatile boolean mBinding;
     private MqttConnectionHandler mConnectionHandler;
     private MqttService.MqttServiceBinder mBinder;
+    private boolean mDisconnecting;
 
     /**
      * Constructor - create an MqttAndroidClient that can be used to communicate with an MQTT server on android
@@ -153,11 +146,11 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     public MqttAndroidClient(Context context, String serverURI, String clientId, MqttClientPersistence persistence,
             Ack ackType)
     {
-        mContext = context;
+        this.mContext = context;
         this.mServerURI = serverURI;
         this.mClientId = clientId;
         this.mPersistence = persistence;
-        mMessageAck = ackType;
+        this.mMessageAck = ackType;
     }
 
     /**
@@ -309,42 +302,39 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     {
 
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback);
-
         mConnectOptions = options;
         mConnectToken = token;
 
-        if (mConnectionHandler == null)
+        if (!mBound)
         { // First time - must bind to the service
             Intent serviceStartIntent = new Intent(mContext, MqttService.class);
             mContext.bindService(serviceStartIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
-
-            if (!mReceiverRegistered) registerReceiver(this);
         }
         else
         {
-            pool.execute(new Runnable()
+            //Close any connection that is previously open
+            if (mConnectionHandler != null && !mDisconnecting && mConnectionHandler.isConnected())
             {
-
-                @Override
-                public void run()
+                try
                 {
-                    doConnect();
-                    //Register receiver to show shoulder tap.
-                    if (!mReceiverRegistered) registerReceiver(MqttAndroidClient.this);
+                    disconnect();
                 }
-
-            });
+                catch (MqttException e)
+                {
+                    LOGE("Exception while disconnecting client: %s", e.getMessage());
+                    //Ignore and connect new client
+                }
+            }
+            if (mConnectionHandler != null)
+            {
+                mConnectionHandler.setCallback(null);
+                mConnectionHandler = null;
+            }
+            doConnect();
         }
 
         return token;
-    }
 
-    private void registerReceiver(BroadcastReceiver receiver)
-    {
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(MqttServiceConstants.CALLBACK_TO_ACTIVITY);
-        LocalBroadcastManager.getInstance(mContext).registerReceiver(receiver, filter);
-        mReceiverRegistered = true;
     }
 
     /**
@@ -352,13 +342,14 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
      */
     private void doConnect()
     {
-        String activityToken = storeToken(mConnectToken);
+        String tokenId = storeToken(mConnectToken);
         try
         {
             mConnectionHandler = mBinder
                     .initConnection(mServerURI, mClientId, Utils.getPackageName(mContext), mPersistence);
             mConnectionHandler.setTraceEnabled(mTraceEnabled);
-            mConnectionHandler.connect(mConnectOptions, null, activityToken);
+            mConnectionHandler.connect(mConnectOptions, null, tokenId);
+            mConnectionHandler.setCallback(this);
         }
         catch (MqttException e)
         {
@@ -387,9 +378,10 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     @Override
     public IMqttToken disconnect() throws MqttException
     {
+        mDisconnecting = true;
         IMqttToken token = new MqttTokenAndroid(this, null, null);
-        String activityToken = storeToken(token);
-        mConnectionHandler.disconnect(null, activityToken);
+        String tokenId = storeToken(token);
+        mConnectionHandler.disconnect(null, tokenId);
         return token;
     }
 
@@ -414,9 +406,10 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     @Override
     public IMqttToken disconnect(long quiesceTimeout) throws MqttException
     {
+        mDisconnecting = true;
         IMqttToken token = new MqttTokenAndroid(this, null, null);
-        String activityToken = storeToken(token);
-        mConnectionHandler.disconnect(quiesceTimeout, null, activityToken);
+        String tokenId = storeToken(token);
+        mConnectionHandler.disconnect(quiesceTimeout, null, tokenId);
         return token;
     }
 
@@ -441,11 +434,13 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     @Override
     public IMqttToken disconnect(Object userContext, IMqttActionListener callback) throws MqttException
     {
+        mDisconnecting = true;
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback);
-        String activityToken = storeToken(token);
-        mConnectionHandler.disconnect(null, activityToken);
+        String tokenId = storeToken(token);
+        mConnectionHandler.disconnect(null, tokenId);
         return token;
     }
+
 
     /**
      * Disconnects from the server.
@@ -490,9 +485,10 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     public IMqttToken disconnect(long quiesceTimeout, Object userContext, IMqttActionListener callback) throws
             MqttException
     {
+        mDisconnecting = true;
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback);
-        String activityToken = storeToken(token);
-        mConnectionHandler.disconnect(quiesceTimeout, null, activityToken);
+        String tokenId = storeToken(token);
+        mConnectionHandler.disconnect(quiesceTimeout, null, tokenId);
         return token;
     }
 
@@ -578,9 +574,9 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         message.setQos(qos);
         message.setRetained(retained);
         MqttDeliveryTokenAndroid token = new MqttDeliveryTokenAndroid(this, userContext, callback, message);
-        String activityToken = storeToken(token);
+        String tokenId = storeToken(token);
         IMqttDeliveryToken internalToken = mConnectionHandler
-                .publish(topic, payload, qos, retained, null, activityToken);
+                .publish(topic, payload, qos, retained, null, tokenId);
         token.setDelegate(internalToken);
         return token;
     }
@@ -665,8 +661,8 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
             callback) throws MqttException, MqttPersistenceException
     {
         MqttDeliveryTokenAndroid token = new MqttDeliveryTokenAndroid(this, userContext, callback, message);
-        String activityToken = storeToken(token);
-        IMqttDeliveryToken internalToken = mConnectionHandler.publish(topic, message, null, activityToken);
+        String tokenId = storeToken(token);
+        IMqttDeliveryToken internalToken = mConnectionHandler.publish(topic, message, null, tokenId);
         token.setDelegate(internalToken);
         return token;
     }
@@ -714,8 +710,7 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
      * @see #subscribe(String[], int[], Object, IMqttActionListener)
      */
     @Override
-    public IMqttToken subscribe(String[] topic, int[] qos)
-            throws MqttException, MqttSecurityException
+    public IMqttToken subscribe(String[] topic, int[] qos) throws MqttException, MqttSecurityException
     {
         return subscribe(topic, qos, null, null);
     }
@@ -743,8 +738,8 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
             MqttException
     {
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback, new String[]{topic});
-        String activityToken = storeToken(token);
-        mConnectionHandler.subscribe(topic, qos, null, activityToken);
+        String tokenId = storeToken(token);
+        mConnectionHandler.subscribe(topic, qos, null, tokenId);
         return token;
     }
 
@@ -873,12 +868,12 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
      * @throws IllegalArgumentException if the two supplied arrays are not the same size.
      */
     @Override
-    public IMqttToken subscribe(String[] topic, int[] qos, Object userContext,
-            IMqttActionListener callback) throws MqttException
+    public IMqttToken subscribe(String[] topic, int[] qos, Object userContext, IMqttActionListener callback) throws
+            MqttException
     {
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback, topic);
-        String activityToken = storeToken(token);
-        mConnectionHandler.subscribe(topic, qos, null, activityToken);
+        String tokenId = storeToken(token);
+        mConnectionHandler.subscribe(topic, qos, null, tokenId);
         return token;
     }
 
@@ -924,7 +919,6 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
      */
     public IMqttToken subscribe(String topicFilter, int qos, IMqttMessageListener messageListener) throws MqttException
     {
-
         return subscribe(topicFilter, qos, null, null, messageListener);
     }
 
@@ -977,8 +971,8 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
             IMqttMessageListener[] messageListeners) throws MqttException
     {
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback, topicFilters);
-        String activityToken = storeToken(token);
-        mConnectionHandler.subscribe(topicFilters, qos, null, activityToken, messageListeners);
+        String tokenId = storeToken(token);
+        mConnectionHandler.subscribe(topicFilters, qos, null, tokenId, messageListeners);
 
         return null;
     }
@@ -1033,8 +1027,8 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     public IMqttToken unsubscribe(String topic, Object userContext, IMqttActionListener callback) throws MqttException
     {
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback);
-        String activityToken = storeToken(token);
-        mConnectionHandler.unsubscribe(topic, null, activityToken);
+        String tokenId = storeToken(token);
+        mConnectionHandler.unsubscribe(topic, null, tokenId);
         return token;
     }
 
@@ -1075,8 +1069,8 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     public IMqttToken unsubscribe(String[] topic, Object userContext, IMqttActionListener callback) throws MqttException
     {
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback);
-        String activityToken = storeToken(token);
-        mConnectionHandler.unsubscribe(topic, null, activityToken);
+        String tokenId = storeToken(token);
+        mConnectionHandler.unsubscribe(topic, null, tokenId);
         return token;
     }
 
@@ -1169,17 +1163,10 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
      * </p>
      */
     @Override
-    public void onReceive(Context context, Intent intent)
+    public void onMqttEvent(Intent intent)
     {
         Bundle data = intent.getExtras();
         if (data == null) return;
-
-        String handleFromIntent = data.getString(MqttServiceConstants.CALLBACK_CLIENT_HANDLE);
-
-        if ((handleFromIntent == null) || (!handleFromIntent.equals(clientHandle)))
-        {
-            return;
-        }
 
         String action = data.getString(MqttServiceConstants.CALLBACK_ACTION);
 
@@ -1218,14 +1205,17 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         else if (MqttServiceConstants.DISCONNECT_ACTION.equals(action))
         {
             disconnected(data);
+            mDisconnecting = false;
         }
         else if (MqttServiceConstants.TRACE_ACTION.equals(action))
         {
             traceAction(data);
+            mDisconnecting = false;
         }
         else
         {
             mConnectionHandler.traceError(TAG, "Callback action doesn't exist.");
+            mDisconnecting = false;
         }
 
     }
@@ -1267,9 +1257,7 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
      */
     private void connectAction(Bundle data)
     {
-        IMqttToken token = mConnectToken;
-        removeMqttToken(data);
-
+        IMqttToken token = removeMqttToken(data);
         simpleAction(token, data);
     }
 
@@ -1285,6 +1273,7 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         {
             ((MqttTokenAndroid) token).notifyComplete();
         }
+        onDisconnectInternal();
         if (mMqttCallback != null)
         {
             mMqttCallback.connectionLost(null);
@@ -1480,10 +1469,10 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
     private synchronized IMqttToken removeMqttToken(Bundle data)
     {
 
-        String activityToken = data.getString(MqttServiceConstants.CALLBACK_ACTIVITY_TOKEN);
-        if (activityToken != null)
+        String tokenId = data.getString(MqttServiceConstants.CALLBACK_ACTIVITY_TOKEN);
+        if (tokenId != null)
         {
-            int tokenNumber = Integer.parseInt(activityToken);
+            int tokenNumber = Integer.parseInt(tokenId);
             IMqttToken token = tokenMap.get(tokenNumber);
             tokenMap.delete(tokenNumber);
             return token;
@@ -1499,8 +1488,8 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
      */
     private synchronized IMqttToken getMqttToken(Bundle data)
     {
-        String activityToken = data.getString(MqttServiceConstants.CALLBACK_ACTIVITY_TOKEN);
-        return tokenMap.get(Integer.parseInt(activityToken));
+        String tokenId = data.getString(MqttServiceConstants.CALLBACK_ACTIVITY_TOKEN);
+        return tokenMap.get(Integer.parseInt(tokenId));
     }
 
     /**
@@ -1588,51 +1577,33 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * Unregister receiver which receives intent from MqttService avoids
-     * IntentReceiver leaks.
-     */
-    public void unregisterResources()
+    private void onDisconnectInternal()
     {
-        if (mContext != null && mReceiverRegistered)
+        if (mConnectionHandler != null)
+            mConnectionHandler.setCallback(null);
+        unbindService();
+    }
+
+    private void unbindService()
+    {
+        mBinder = null;
+        mConnectionHandler = null;
+
+        if (mBound)
         {
-            synchronized (MqttAndroidClient.this)
+            try
             {
-                LocalBroadcastManager.getInstance(mContext).unregisterReceiver(this);
-                mReceiverRegistered = false;
+                mBound = false;
+                mContext.unbindService(mServiceConnection);
             }
-            if (mBound)
+            catch (IllegalArgumentException e)
             {
-                try
-                {
-                    mContext.unbindService(mServiceConnection);
-                    mBound = false;
-                }
-                catch (IllegalArgumentException e)
-                {
-                    //Ignore unbind issue.
-                }
+                //Ignore unbind issue.
+                LOGE("Exception while unbinding from MqttService: " + e.getMessage());
             }
         }
     }
 
-    /**
-     * Register receiver to receiver intent from MqttService. Call this method
-     * when activity is hidden and become to show again.
-     *
-     * @param context - Current activity context.
-     */
-    public void registerResources(Context context)
-    {
-        if (context != null)
-        {
-            this.mContext = context;
-            if (!mReceiverRegistered)
-            {
-                registerReceiver(this);
-            }
-        }
-    }
 
     /**
      * The Acknowledgment mode for messages received from {@link MqttCallback#messageArrived(String, MqttMessage)}
@@ -1671,7 +1642,22 @@ public class MqttAndroidClient extends BroadcastReceiver implements IMqttAsyncCl
         @Override
         public void onServiceDisconnected(ComponentName name)
         {
+            //Disconnect gracefully if service connection is lost
+            if (mConnectionHandler != null && mConnectionHandler.isConnected())
+            {
+                try
+                {
+                    mConnectionHandler.disconnect(null, null);
+                }
+                catch (MqttException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+
             mConnectionHandler = null;
+            mBinder = null;
+            mBound = false;
         }
     }
 }
