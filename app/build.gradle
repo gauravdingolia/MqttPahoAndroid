@@ -34,7 +34,7 @@ publishing {
         maven(MavenPublication) {
             groupId 'com.upheo.android.mqtt'
             artifactId 'mqtt-client'
-            version '1.0.0-snapshot2'
+            version '1.0.0-snapshot3'
             artifact(sourceJar)
             artifact "${project.buildDir}/outputs/aar/${project.name}-release.aar"
 

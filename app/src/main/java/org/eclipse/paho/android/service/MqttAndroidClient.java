@@ -1595,7 +1595,10 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     {
         if (mConnectionHandler != null)
             mConnectionHandler.setCallback(null);
-        unbindService();
+        if (!mConnectionPending)
+            unbindService();
+        else
+            mConnectionHandler = null;
     }
 
     private void unbindService()
