@@ -85,8 +85,7 @@ public class MqttService extends Service
             PowerManager pm = (PowerManager) context.getSystemService(POWER_SERVICE);
             @SuppressWarnings("ConstantConditions")
             PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, MqttService.class.getName());
-            //TODO: Set timeout
-            wl.acquire();
+            wl.acquire(Constants.DEFAULT_WAKELOCK_TIMEOUT_MS);
             mMqttConnectionManager.traceDebug(TAG, "Reconnect for Network recovery.");
             if (Utils.isOnline(context))
             {

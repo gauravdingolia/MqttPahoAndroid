@@ -331,6 +331,10 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
                         //Ignore and connect new client
                     }
                 }
+                else
+                {
+                    doConnect();
+                }
             }
             else
             {
