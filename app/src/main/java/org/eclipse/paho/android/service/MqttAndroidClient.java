@@ -331,9 +331,10 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
                         //Ignore and connect new client
                     }
                 }
-                else
+                else if (!mDisconnecting && !mConnectionHandler.isConnected())
                 {
-                    doConnect();
+                    String tokenId = storeToken(mConnectToken);
+                    mConnectionHandler.connect(mConnectOptions, null, tokenId);
                 }
             }
             else
