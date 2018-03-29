@@ -325,10 +325,12 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
                     }
                     catch (MqttException e)
                     {
-                        LOGE("Exception while disconnecting client: %s", e.getMessage());
+                        LOGE("Exception while disconnecting previous client: %s", e.getMessage());
                         mConnectionPending = false;
+                        mConnectionHandler.setCallback(null);
+                        mConnectionHandler = null;
+                        //connect new client
                         doConnect();
-                        //Ignore and connect new client
                     }
                 }
                 else if (!mDisconnecting && !mConnectionHandler.isConnected())
@@ -363,6 +365,12 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
         }
         catch (MqttException e)
         {
+            LOGE("Exception while connecting to mqtt client: %s", e.getMessage());
+            if (mConnectionHandler != null)
+            {
+                mConnectionHandler.setCallback(null);
+                mConnectionHandler = null;
+            }
             IMqttActionListener listener = mConnectToken.getActionCallback();
             if (listener != null)
             {
@@ -388,6 +396,8 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     @Override
     public IMqttToken disconnect() throws MqttException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
         mDisconnecting = true;
         IMqttToken token = new MqttTokenAndroid(this, null, null);
         String tokenId = storeToken(token);
@@ -416,6 +426,8 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     @Override
     public IMqttToken disconnect(long quiesceTimeout) throws MqttException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
         mDisconnecting = true;
         IMqttToken token = new MqttTokenAndroid(this, null, null);
         String tokenId = storeToken(token);
@@ -444,6 +456,8 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     @Override
     public IMqttToken disconnect(Object userContext, IMqttActionListener callback) throws MqttException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
         mDisconnecting = true;
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback);
         String tokenId = storeToken(token);
@@ -495,6 +509,9 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     public IMqttToken disconnect(long quiesceTimeout, Object userContext, IMqttActionListener callback) throws
             MqttException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
+
         mDisconnecting = true;
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback);
         String tokenId = storeToken(token);
@@ -526,6 +543,7 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     public IMqttDeliveryToken publish(String topic, byte[] payload, int qos, boolean retained) throws MqttException,
             MqttPersistenceException
     {
+
         return publish(topic, payload, qos, retained, null, null);
     }
 
@@ -579,6 +597,8 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
             boolean retained, Object userContext, IMqttActionListener callback)
             throws MqttException, MqttPersistenceException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
 
         MqttMessage message = new MqttMessage(payload);
         message.setQos(qos);
@@ -747,6 +767,8 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     public IMqttToken subscribe(String topic, int qos, Object userContext, IMqttActionListener callback) throws
             MqttException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback, new String[]{topic});
         String tokenId = storeToken(token);
         mConnectionHandler.subscribe(topic, qos, null, tokenId);
@@ -881,6 +903,9 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     public IMqttToken subscribe(String[] topic, int[] qos, Object userContext, IMqttActionListener callback) throws
             MqttException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
+
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback, topic);
         String tokenId = storeToken(token);
         mConnectionHandler.subscribe(topic, qos, null, tokenId);
@@ -980,10 +1005,11 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     public IMqttToken subscribe(String[] topicFilters, int[] qos, Object userContext, IMqttActionListener callback,
             IMqttMessageListener[] messageListeners) throws MqttException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback, topicFilters);
         String tokenId = storeToken(token);
         mConnectionHandler.subscribe(topicFilters, qos, null, tokenId, messageListeners);
-
         return null;
     }
 
@@ -1036,6 +1062,8 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     @Override
     public IMqttToken unsubscribe(String topic, Object userContext, IMqttActionListener callback) throws MqttException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback);
         String tokenId = storeToken(token);
         mConnectionHandler.unsubscribe(topic, null, tokenId);
@@ -1078,6 +1106,8 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
     @Override
     public IMqttToken unsubscribe(String[] topic, Object userContext, IMqttActionListener callback) throws MqttException
     {
+        if (mConnectionHandler == null)
+            throw new MqttException(MqttException.REASON_CODE_CLIENT_NOT_CONNECTED);
         IMqttToken token = new MqttTokenAndroid(this, userContext, callback);
         String tokenId = storeToken(token);
         mConnectionHandler.unsubscribe(topic, null, tokenId);
@@ -1621,7 +1651,7 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
             catch (IllegalArgumentException e)
             {
                 //Ignore unbind issue.
-                LOGE("Exception while unbinding from MqttService: " + e.getMessage());
+                LOGE("Exception while unbinding from MqttService: %s", e.getMessage());
             }
         }
     }
@@ -1673,9 +1703,12 @@ public class MqttAndroidClient implements IMqttAsyncClient, MqttConnectionHandle
                 }
                 catch (MqttException e)
                 {
-                    e.printStackTrace();
+                    LOGE("OnServiceDisconnected: Exception while disconnecting connection: %s", e.getMessage());
                 }
             }
+
+            if (mConnectionHandler != null)
+                mConnectionHandler.setCallback(null);
 
             mConnectionHandler = null;
             mBinder = null;
